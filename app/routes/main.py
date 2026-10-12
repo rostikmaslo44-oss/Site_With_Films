@@ -39,3 +39,17 @@ def search_catalog():
         return jsonify({"error": str(error)}), error.status_code
 
     return jsonify({"results": results})
+
+
+@main.get("/api/details/<media_type>/<int:item_id>")
+def item_details(media_type: str, item_id: int):
+    if media_type not in {"movie", "tv"} or item_id < 1:
+        return jsonify({"error": "Некоректний ідентифікатор фільму або серіалу."}), 400
+
+    try:
+        details = TMDBService(current_app.config["TMDB_ACCESS_TOKEN"]).details(media_type, item_id)
+    except TMDBError as error:
+        current_app.logger.error("TMDB details request failed: %s", error)
+        return jsonify({"error": str(error)}), error.status_code
+
+    return jsonify(details)

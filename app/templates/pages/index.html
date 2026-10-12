@@ -108,6 +108,62 @@
     </aside>
   </main>
 
+  <main class="detail-page" id="movie-detail" hidden>
+    <section class="detail-banner">
+      <img class="detail-backdrop" id="detail-backdrop" alt="">
+      <div class="detail-banner-shade"></div>
+      <div class="detail-banner-content">
+        <button class="detail-back button button-outline" id="detail-back" type="button">← До каталогу</button>
+        <span class="eyebrow" id="detail-type"></span>
+        <h1 id="detail-title">Завантажуємо…</h1>
+        <div class="detail-meta" id="detail-meta"></div>
+        <p class="detail-tagline" id="detail-tagline"></p>
+        <div class="detail-actions">
+          <button class="button button-primary" id="detail-trailer-button" type="button" hidden>▶ Дивитись трейлер</button>
+          <button class="button button-outline" id="detail-watchlist" type="button">＋ Додати до списку</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="detail-status" id="detail-status" role="status">Завантажуємо інформацію…</p>
+    <div class="detail-layout" id="detail-content" hidden>
+      <div class="detail-main-column">
+        <section class="detail-section">
+          <h2>Про фільм</h2>
+          <p class="detail-overview" id="detail-overview"></p>
+          <dl class="detail-facts" id="detail-facts"></dl>
+        </section>
+        <section class="detail-section trailer-section">
+          <h2>Трейлер</h2>
+          <div class="trailer-frame" id="detail-trailer"></div>
+        </section>
+        <section class="detail-section">
+          <h2>Акторський склад</h2>
+          <div class="cast-grid" id="detail-cast"></div>
+        </section>
+        <section class="detail-section reviews-section" id="reviews-section">
+          <h2>Відгуки</h2>
+          <div class="reviews-grid" id="detail-reviews"></div>
+        </section>
+      </div>
+      <aside class="detail-sidebar">
+        <section class="side-panel detail-rating-panel">
+          <h2>Оцінка глядачів</h2>
+          <div class="detail-rating"><span class="star">★</span><strong id="detail-rating-value"></strong><span>/ 10</span></div>
+          <p id="detail-vote-count"></p>
+        </section>
+        <section class="side-panel similar-panel" id="similar-section">
+          <div class="section-heading"><h2>Схожі фільми</h2></div>
+          <div class="similar-list" id="detail-similar"></div>
+        </section>
+        <section class="side-panel detail-genres-panel">
+          <h2>Жанри</h2>
+          <div class="detail-genres" id="detail-genres"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
   <footer class="site-footer">
     <a class="brand footer-brand" href="#"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Film<span>Verse</span></span></a>
     <span class="footer-copy">Фільми. Серіали. Емоції.</span>

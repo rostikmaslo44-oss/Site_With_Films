@@ -60,9 +60,107 @@ class TMDBService:
         records = self._get_results("/search/multi", {"query": query, "include_adult": "false"})
         return [record for record in records if record["media_type"] in {"movie", "tv"}]
 
+    def details(self, media_type: str, item_id: int) -> dict[str, Any]:
+        payload = self._get_json(
+            f"/{media_type}/{item_id}",
+            {"append_to_response": "credits,recommendations,videos,reviews"},
+        )
+        if not isinstance(payload, dict) or not isinstance(payload.get("id"), int):
+            raise TMDBError("TMDB повернув некоректні дані про фільм.")
+
+        normalized = self._normalize({**payload, "media_type": media_type})
+        if normalized is None:
+            raise TMDBError("TMDB повернув некоректні дані про фільм.")
+
+        credits = payload.get("credits") if isinstance(payload.get("credits"), dict) else {}
+        cast = credits.get("cast") if isinstance(credits.get("cast"), list) else []
+        crew = credits.get("crew") if isinstance(credits.get("crew"), list) else []
+        videos = payload.get("videos") if isinstance(payload.get("videos"), dict) else {}
+        video_results = videos.get("results") if isinstance(videos.get("results"), list) else []
+        reviews = payload.get("reviews") if isinstance(payload.get("reviews"), dict) else {}
+        review_results = reviews.get("results") if isinstance(reviews.get("results"), list) else []
+        recommendations = payload.get("recommendations")
+        recommendation_results = (
+            recommendations.get("results")
+            if isinstance(recommendations, dict) and isinstance(recommendations.get("results"), list)
+            else []
+        )
+        release_date = payload.get("release_date" if media_type == "movie" else "first_air_date")
+        runtimes = payload.get("episode_run_time") if media_type == "tv" else []
+        runtime = payload.get("runtime") if media_type == "movie" else (
+            runtimes[0] if isinstance(runtimes, list) and runtimes else None
+        )
+
+        normalized.update({
+            "runtime": runtime if isinstance(runtime, int) else None,
+            "release_date": release_date if isinstance(release_date, str) else "",
+            "status": payload.get("status") if isinstance(payload.get("status"), str) else "",
+            "tagline": payload.get("tagline") if isinstance(payload.get("tagline"), str) else "",
+            "vote_count": payload.get("vote_count") if isinstance(payload.get("vote_count"), int) else 0,
+            "director": next((
+                person["name"]
+                for person in crew
+                if isinstance(person, dict) and person.get("job") == "Director"
+                and isinstance(person.get("name"), str)
+            ), ""),
+            "countries": [
+                country["name"]
+                for country in payload.get("production_countries", [])
+                if isinstance(country, dict) and isinstance(country.get("name"), str)
+            ] if isinstance(payload.get("production_countries"), list) else [],
+            "languages": [
+                language["english_name"]
+                for language in payload.get("spoken_languages", [])
+                if isinstance(language, dict) and isinstance(language.get("english_name"), str)
+            ] if isinstance(payload.get("spoken_languages"), list) else [],
+            "cast": [
+                {
+                    "name": person["name"],
+                    "character": person.get("character", ""),
+                    "profile": self._image_url(person.get("profile_path"), "w500"),
+                }
+                for person in cast[:8]
+                if isinstance(person, dict) and isinstance(person.get("name"), str)
+            ],
+            "trailer": next((
+                f"https://www.youtube-nocookie.com/embed/{video['key']}"
+                for video in video_results
+                if isinstance(video, dict) and video.get("site") == "YouTube"
+                and video.get("type") == "Trailer" and isinstance(video.get("key"), str)
+            ), ""),
+            "reviews": [
+                {
+                    "author": review.get("author", "Глядач"),
+                    "content": review.get("content", ""),
+                    "rating": review.get("author_details", {}).get("rating")
+                    if isinstance(review.get("author_details"), dict) else None,
+                }
+                for review in review_results[:4]
+                if isinstance(review, dict) and isinstance(review.get("content"), str)
+            ],
+            "similar": [
+                item
+                for record in recommendation_results
+                if isinstance(record, dict)
+                if (item := self._normalize({**record, "media_type": media_type})) is not None
+            ][:6],
+        })
+        return normalized
+
     def _get_results(
         self, endpoint: str, params: dict[str, str] | None = None
     ) -> list[dict[str, Any]]:
+        payload = self._get_json(endpoint, params)
+        results = payload.get("results") if isinstance(payload, dict) else None
+        if not isinstance(results, list):
+            raise TMDBError("TMDB повернув відповідь без списку результатів.")
+        return [
+            normalized
+            for item in results
+            if (normalized := self._normalize(item)) is not None
+        ]
+
+    def _get_json(self, endpoint: str, params: dict[str, str] | None = None) -> Any:
         if not self.access_token:
             raise TMDBError(
                 "TMDB не налаштовано. Додайте TMDB_ACCESS_TOKEN у файл .env.",
@@ -97,14 +195,7 @@ class TMDBService:
         except requests.RequestException as error:
             raise TMDBError("Не вдалося з'єднатися з TMDB. Перевірте інтернет і спробуйте ще раз.") from error
 
-        results = payload.get("results") if isinstance(payload, dict) else None
-        if not isinstance(results, list):
-            raise TMDBError("TMDB повернув відповідь без списку результатів.")
-        return [
-            normalized
-            for item in results
-            if (normalized := self._normalize(item)) is not None
-        ]
+        return payload
 
     @staticmethod
     def _normalize(item: Any) -> dict[str, Any] | None:
@@ -124,11 +215,18 @@ class TMDBService:
         release_date = item.get("release_date" if media_type == "movie" else "first_air_date")
         year = release_date[:4] if isinstance(release_date, str) and len(release_date) >= 4 else ""
         genre_ids = item.get("genre_ids", [])
-        genres = [
-            GENRES[genre_id]
-            for genre_id in genre_ids
-            if isinstance(genre_id, int) and genre_id in GENRES
-        ] if isinstance(genre_ids, list) else []
+        if isinstance(item.get("genres"), list):
+            genres = [
+                genre["name"]
+                for genre in item["genres"]
+                if isinstance(genre, dict) and isinstance(genre.get("name"), str)
+            ]
+        else:
+            genres = [
+                GENRES[genre_id]
+                for genre_id in genre_ids
+                if isinstance(genre_id, int) and genre_id in GENRES
+            ] if isinstance(genre_ids, list) else []
 
         return {
             "id": item.get("id"),
