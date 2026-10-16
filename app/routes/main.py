@@ -1,5 +1,6 @@
 from flask import Blueprint, current_app, jsonify, render_template, request
 
+from app.services.archive import ArchiveError, InternetArchiveService
 from app.services.tmdb import TMDBError, TMDBService
 
 main = Blueprint("main", __name__)
@@ -53,3 +54,14 @@ def item_details(media_type: str, item_id: int):
         return jsonify({"error": str(error)}), error.status_code
 
     return jsonify(details)
+
+
+@main.get("/api/free-movies")
+def free_movies():
+    try:
+        results = InternetArchiveService().free_movies()
+    except ArchiveError as error:
+        current_app.logger.error("Internet Archive movie catalog request failed: %s", error)
+        return jsonify({"error": str(error)}), error.status_code
+
+    return jsonify({"results": results})
