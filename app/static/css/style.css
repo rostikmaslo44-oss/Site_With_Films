@@ -66,7 +66,7 @@ button { color: inherit; }
 .icon-button, .avatar, .mobile-menu { display: grid; place-items: center; border: 0; background: none; cursor: pointer; padding: 0; }
 .icon-button { width: 20px; height: 28px; }
 .icon-button svg { width: 16px; height: 16px; stroke: #b7bdc6; fill: none; stroke-width: 1.6; }
-.avatar { width: 27px; height: 27px; border-radius: 50%; background: #202b3a; color: #dce1e8; font-weight: 700; font-size: 11px; }
+.avatar { width: 27px; height: 27px; border-radius: 50%; background: #202b3a; color: #dce1e8; font-weight: 700; font-size: 11px; overflow: hidden; background-repeat: no-repeat; background-position: center; background-size: cover; }
 .mobile-menu { display: none; }
 
 .page-layout { max-width: 1370px; margin: 16px auto 0; padding: 0 4.1%; display: grid; grid-template-columns: minmax(0, 1fr) 345px; gap: 22px; }
@@ -179,7 +179,13 @@ button { color: inherit; }
 .account-page { max-width: 1370px; min-height: calc(100vh - 150px); margin: 16px auto 0; padding: 0 4.1%; display: grid; place-items: start center; }
 .account-page[hidden] { display: none; }
 .account-panel { width: min(100%, 560px); margin: 35px 0; padding: 30px; border: 1px solid #202b38; border-radius: 8px; background: linear-gradient(145deg, #0e151e, #0a0f16); }
-.account-avatar { display: grid; place-items: center; width: 62px; height: 62px; margin-bottom: 18px; border: 1px solid #39485b; border-radius: 50%; background: #202b3a; color: #f3f5f8; font: 700 23px Manrope, sans-serif; }
+.account-header { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 18px; }
+.profile-avatar-shell { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.account-avatar { display: grid; place-items: center; width: 72px; height: 72px; border: 1px solid #39485b; border-radius: 50%; background: #202b3a; color: #f3f5f8; font: 700 26px Manrope, sans-serif; overflow: hidden; background-repeat: no-repeat; background-position: center; background-size: cover; }
+.account-header-copy { flex: 1; min-width: 0; }
+.avatar-upload { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 0 12px; border: 1px solid #404f65; border-radius: 999px; background: rgba(16, 22, 31, 0.9); color: #dfe4eb; font-size: 10px; cursor: pointer; }
+.avatar-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.avatar-upload[hidden] { display: none; }
 .account-panel h1 { margin: 8px 0; font: 800 27px/1.2 Manrope, sans-serif; letter-spacing: -.03em; }
 .account-description { margin: 0 0 22px; color: #aab4c0; line-height: 1.6; }
 .account-form { padding: 17px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
