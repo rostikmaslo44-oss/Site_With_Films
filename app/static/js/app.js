@@ -9,13 +9,19 @@ const heroDotsContainer = document.querySelector('.hero-dots');
 const searchInput = document.querySelector('#movie-search');
 const emptyState = document.querySelector('.empty-state');
 const catalogStatus = document.querySelector('#catalog-status');
+const freeMovieGrid = document.querySelector('#free-movie-grid');
+const freeMovieStatus = document.querySelector('#free-movies-status');
+const freeMoviePlayer = document.querySelector('#free-movie-player');
+const freeMovieEmbed = document.querySelector('#free-movie-embed');
+const freeMovieTitle = document.querySelector('#free-movie-title');
+const freeMovieSource = document.querySelector('#free-movie-source');
 const watchlistNav = document.querySelector('.watchlist-nav');
 const watchlistCount = document.querySelector('.watchlist-count');
 const heroWatchlist = document.querySelector('.hero-watchlist');
-const dialog = document.querySelector('#movie-dialog');
-const dialogTitle = document.querySelector('#dialog-title');
 const homePage = document.querySelector('#home');
 const detailPage = document.querySelector('#movie-detail');
+const accountPage = document.querySelector('#account');
+const infoPage = document.querySelector('#info');
 const detailStatus = document.querySelector('#detail-status');
 const detailContent = document.querySelector('#detail-content');
 const detailTrailerButton = document.querySelector('#detail-trailer-button');
@@ -40,6 +46,9 @@ let savedItems = new Map();
 const knownItems = new Map();
 let detailRequest = 0;
 let activeDetails = null;
+let currentRoute = '';
+let currentHash = '';
+let displayName = 'Глядач';
 
 try {
   const savedEntries = JSON.parse(localStorage.getItem('filmverse-watchlist') || '[]');
@@ -71,6 +80,14 @@ function itemKey(item) {
 
 function updateWatchlistCount() {
   watchlistCount.textContent = String(watchlist.size);
+  document.querySelector('#account-watchlist-count').textContent = String(watchlist.size);
+}
+
+try {
+  const storedName = localStorage.getItem('filmverse-display-name');
+  if (storedName) displayName = storedName;
+} catch (error) {
+  console.warn('Не вдалося прочитати ім’я профілю.', error);
 }
 
 function saveWatchlist() {
@@ -212,6 +229,12 @@ function renderHome(catalog) {
   const topTen = document.querySelector('#top-ten-list');
   topTen.replaceChildren(...catalog.top_rated.slice(0, 10).map((item, index) => {
     const row = document.createElement('li');
+    row.classList.add('top-ten-item');
+    row.tabIndex = 0;
+    row.setAttribute('role', 'link');
+    row.setAttribute('aria-label', `Детальніше про фільм «${item.title}»`);
+    row.dataset.mediaType = item.media_type;
+    row.dataset.itemId = String(item.id);
     const rank = document.createElement('span');
     rank.className = 'rank';
     rank.textContent = String(index + 1);
@@ -245,6 +268,9 @@ function renderHome(catalog) {
     ...catalog.series,
     ...catalog.top_rated
   ]);
+  if (window.location.hash === '#watchlist') {
+    renderCards(catalogs.trending, [...savedItems.values()]);
+  }
   setSlide(0);
   updateVisibleCards();
 }
@@ -253,6 +279,7 @@ function showSearchMode(mode) {
   const isFilteredView = mode !== '';
   document.querySelector('#new').hidden = isFilteredView;
   document.querySelector('#series').hidden = isFilteredView;
+  document.querySelector('#free-movies').hidden = isFilteredView;
   document.querySelector('.top-ten').hidden = isFilteredView;
   document.querySelector('#popular h2').textContent = mode === 'search'
     ? 'Результати пошуку'
@@ -267,6 +294,9 @@ async function loadHomeCatalog() {
     if (!response.ok) throw new Error(payload.error || 'Не вдалося завантажити каталог.');
     renderHome(payload);
     setStatus('');
+    if (currentRoute === 'home' && history.state?.filmVerseView) {
+      restoreHomeView(history.state.filmVerseView);
+    }
   } catch (error) {
     setStatus(error.message || 'Не вдалося завантажити каталог. Спробуйте оновити сторінку.', true);
     document.querySelector('#hero-title').textContent = 'Каталог тимчасово недоступний';
@@ -276,6 +306,7 @@ async function loadHomeCatalog() {
 async function searchCatalog(query, requestId) {
   if (!query) {
     showingWatchlist = false;
+    watchlistNav.setAttribute('aria-pressed', 'false');
     showSearchMode('');
     if (homeCatalog) {
       renderCards(catalogs.trending, homeCatalog.trending);
@@ -286,6 +317,7 @@ async function searchCatalog(query, requestId) {
   }
 
   showingWatchlist = false;
+  watchlistNav.setAttribute('aria-pressed', 'false');
   showSearchMode('search');
   renderCards(catalogs.trending, []);
   updateVisibleCards();
@@ -300,6 +332,70 @@ async function searchCatalog(query, requestId) {
   } catch (error) {
     if (requestId === searchRequest) setStatus(error.message || 'Не вдалося виконати пошук.', true);
   }
+}
+
+function createFreeMovieCard(item) {
+  const card = document.createElement('article');
+  card.className = 'free-movie-card';
+
+  const image = document.createElement('img');
+  image.src = `https://archive.org/services/img/${encodeURIComponent(item.identifier)}`;
+  image.alt = `Постер: ${item.title}`;
+  image.loading = 'lazy';
+  image.addEventListener('error', () => image.remove(), { once: true });
+
+  const content = document.createElement('div');
+  content.className = 'free-movie-card-content';
+  const title = document.createElement('h3');
+  title.textContent = item.title;
+  const metadata = document.createElement('p');
+  metadata.textContent = [item.year, 'Public Domain'].filter(Boolean).join(' · ');
+  const description = document.createElement('p');
+  description.textContent = item.description || 'Опис на сторінці Internet Archive.';
+  const play = document.createElement('button');
+  play.className = 'button button-primary';
+  play.type = 'button';
+  play.dataset.freeMovieId = item.identifier;
+  play.textContent = '▶ Дивитись';
+  const license = document.createElement('a');
+  license.href = item.license_url;
+  license.target = '_blank';
+  license.rel = 'noopener noreferrer';
+  license.textContent = 'Ліцензія';
+
+  content.append(title, metadata, description, play, license);
+  card.append(image, content);
+  return card;
+}
+
+async function loadFreeMovies() {
+  freeMovieStatus.textContent = 'Завантажуємо безкоштовні фільми…';
+  freeMovieStatus.classList.remove('error');
+  try {
+    const response = await fetch('/api/free-movies');
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Не вдалося завантажити каталог безкоштовних фільмів.');
+    if (!Array.isArray(payload.results)) throw new Error('Каталог безкоштовних фільмів повернув некоректні дані.');
+    freeMovieGrid.replaceChildren(...payload.results.map(createFreeMovieCard));
+    freeMovieStatus.textContent = payload.results.length
+      ? ''
+      : 'Зараз немає доступних фільмів. Спробуйте пізніше.';
+  } catch (error) {
+    freeMovieStatus.textContent = error.message || 'Не вдалося завантажити фільми. Спробуйте пізніше.';
+    freeMovieStatus.classList.add('error');
+  }
+}
+
+function playFreeMovie(identifier) {
+  if (!/^[A-Za-z0-9._-]{1,160}$/.test(identifier)) return;
+  const item = freeMovieGrid.querySelector(`[data-free-movie-id="${CSS.escape(identifier)}"]`);
+  if (!item) return;
+  freeMovieTitle.textContent = item.closest('.free-movie-card').querySelector('h3').textContent;
+  freeMovieEmbed.title = `Фільм: ${freeMovieTitle.textContent}`;
+  freeMovieEmbed.src = `https://archive.org/embed/${encodeURIComponent(identifier)}`;
+  freeMovieSource.href = `https://archive.org/details/${encodeURIComponent(identifier)}`;
+  freeMoviePlayer.hidden = false;
+  freeMoviePlayer.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function toggleWatchlist(key, button) {
@@ -552,6 +648,8 @@ async function loadDetails(mediaType, itemId) {
   const requestId = ++detailRequest;
   homePage.hidden = true;
   detailPage.hidden = false;
+  accountPage.hidden = true;
+  infoPage.hidden = true;
   siteFooter.hidden = true;
   detailContent.hidden = true;
   detailStatus.hidden = false;
@@ -578,29 +676,280 @@ async function loadDetails(mediaType, itemId) {
 function openDetails(mediaType, itemId) {
   const nextHash = `#movie/${mediaType}/${itemId}`;
   if (window.location.hash !== nextHash) {
-    history.pushState({ filmVerseDetails: true }, '', nextHash);
+    pushRoute(nextHash, true);
   }
-  loadDetails(mediaType, itemId);
+  syncPageWithLocation();
+}
+
+const informationPages = {
+  about: {
+    title: 'Про FilmVerse',
+    paragraphs: [
+      'FilmVerse допомагає знаходити фільми та серіали, зберігати обране й відкривати безкоштовні стрічки з відкритого каталогу.',
+      'Каталог і відомості про фільми надає TMDB. Безкоштовні фільми надходять з Internet Archive.'
+    ]
+  },
+  contact: {
+    title: 'Контакти',
+    paragraphs: [
+      'FilmVerse наразі є локальним проєктом і не має налаштованої служби підтримки чи адреси для звернень.'
+    ]
+  },
+  rules: {
+    title: 'Правила та джерела',
+    paragraphs: [
+      'FilmVerse показує інформацію про фільми та серіали, отриману від TMDB. Сам сайт не надає повні версії комерційних фільмів.',
+      'Безкоштовні відео вбудовуються з Internet Archive. Перед переглядом перевіряйте права, ліцензію та доступність на сторінці першоджерела.'
+    ]
+  },
+  help: {
+    title: 'Допомога',
+    paragraphs: [
+      'Відкривайте картки, щоб переглянути деталі. Значок «＋» додає стрічку до списку, який доступний через «Мій список».',
+      'Ім’я профілю та список зберігаються локально в цьому браузері. Для переходу між екранами також працюють кнопки браузера «Назад» і «Вперед».'
+    ]
+  }
+};
+
+function renderInformationPage(pageName) {
+  const page = informationPages[pageName];
+  if (!page) return false;
+  document.querySelector('#info-title').textContent = page.title;
+  const content = document.querySelector('#info-content');
+  content.replaceChildren(...page.paragraphs.map((text) => {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+    return paragraph;
+  }));
+  return true;
+}
+
+function showWatchlist() {
+  showingWatchlist = true;
+  selectedGenre = '';
+  watchlistNav.setAttribute('aria-pressed', 'false');
+  searchInput.value = '';
+  searchRequest += 1;
+  clearTimeout(searchTimer);
+  document.querySelectorAll('.genre-grid button').forEach((button) => button.classList.remove('selected'));
+  watchlistNav.classList.add('active');
+  watchlistNav.setAttribute('aria-pressed', 'true');
+  showSearchMode('watchlist');
+  renderCards(catalogs.trending, [...savedItems.values()]);
+  setStatus('');
+}
+
+function captureHomeView() {
+  return {
+    search: searchInput.value,
+    showingWatchlist,
+    selectedGenre,
+    scrollY: window.scrollY
+  };
+}
+
+function restoreHomeView(view) {
+  if (!view || typeof view !== 'object') return;
+  clearTimeout(searchTimer);
+  searchRequest += 1;
+  searchInput.value = typeof view.search === 'string' ? view.search : '';
+  showingWatchlist = view.showingWatchlist === true;
+  selectedGenre = typeof view.selectedGenre === 'string' ? view.selectedGenre : '';
+  watchlistNav.classList.toggle('active', showingWatchlist);
+  watchlistNav.setAttribute('aria-pressed', String(showingWatchlist));
+  document.querySelectorAll('.genre-grid button').forEach((button) => {
+    button.classList.toggle('selected', button.dataset.genre === selectedGenre);
+  });
+
+  if (showingWatchlist) {
+    showSearchMode('watchlist');
+    renderCards(catalogs.trending, [...savedItems.values()]);
+    setStatus('');
+  } else if (searchInput.value) {
+    showingWatchlist = false;
+    showSearchMode('search');
+    renderCards(catalogs.trending, []);
+    const requestId = searchRequest;
+    setStatus('Шукаємо фільми та серіали…');
+    searchCatalog(searchInput.value.trim(), requestId);
+  } else {
+    showSearchMode('');
+    if (homeCatalog) {
+      renderCards(catalogs.trending, homeCatalog.trending);
+      renderCards(catalogs.upcoming, homeCatalog.upcoming);
+      renderCards(catalogs.series, homeCatalog.series);
+    }
+    setStatus('');
+  }
+
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: Number.isFinite(view.scrollY) ? view.scrollY : 0, behavior: 'auto' });
+  });
 }
 
 function syncPageWithLocation() {
-  const match = window.location.hash.match(/^#movie\/(movie|tv)\/(\d+)$/);
+  const hash = window.location.hash || '#home';
+  const match = hash.match(/^#movie\/(movie|tv)\/(\d+)$/);
+  document.querySelectorAll('.main-nav .nav-link').forEach((link) => {
+    link.classList.toggle('active', link.getAttribute('href') === hash);
+  });
   if (match) {
-    loadDetails(match[1], match[2]);
+    const route = `movie:${match[1]}:${match[2]}`;
+    if (currentRoute !== route) {
+      currentRoute = route;
+      currentHash = hash;
+      loadDetails(match[1], match[2]);
+    }
     return;
   }
+  const infoMatch = hash.match(/^#(about|contact|rules|help)$/);
+  const nextRoute = hash === '#account'
+    ? 'account'
+    : infoMatch ? `info:${infoMatch[1]}` : 'home';
+  const locationChanged = currentHash !== hash;
+  if (currentRoute === nextRoute && !locationChanged) return;
+  const routeChanged = currentRoute !== nextRoute;
+  currentRoute = nextRoute;
+  currentHash = hash;
   detailRequest += 1;
   activeDetails = null;
   detailPage.hidden = true;
-  homePage.hidden = false;
+  accountPage.hidden = nextRoute !== 'account';
+  infoPage.hidden = !nextRoute.startsWith('info:');
+  homePage.hidden = nextRoute !== 'home';
   siteFooter.hidden = false;
-  document.title = 'FilmVerse — фільми та серіали';
+  document.title = nextRoute === 'account'
+    ? 'Акаунт — FilmVerse'
+    : nextRoute.startsWith('info:')
+      ? `${informationPages[nextRoute.slice(5)].title} — FilmVerse`
+      : 'FilmVerse — фільми та серіали';
+  if (nextRoute === 'account') {
+    document.querySelector('#account-display-name').value = displayName;
+    updateWatchlistCount();
+  } else if (nextRoute.startsWith('info:')) {
+    renderInformationPage(nextRoute.slice(5));
+  } else if (nextRoute === 'home') {
+    if (history.state?.filmVerseView) {
+      restoreHomeView(history.state.filmVerseView);
+    } else if (hash === '#watchlist') {
+      showWatchlist();
+      requestAnimationFrame(() => {
+        document.querySelector('#popular').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    } else {
+      resetCatalogFilters();
+      if (hash !== '#home' && hash !== '#') {
+        requestAnimationFrame(() => {
+          document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      } else if (locationChanged) {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      }
+    }
+  }
+  if (routeChanged && nextRoute !== 'home') {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
 }
 
+function pushRoute(hash, isDetail = false) {
+  if (currentRoute === 'home') {
+    const state = history.state && typeof history.state === 'object' ? history.state : {};
+    history.replaceState({ ...state, filmVerseView: captureHomeView() }, '', window.location.href);
+  }
+  history.pushState(isDetail ? { filmVerseDetail: true } : { filmVerseNavigation: true }, '', hash);
+}
+
+function navigateToHash(hash) {
+  const unchanged = window.location.hash === hash;
+  if (!unchanged) {
+    pushRoute(hash);
+  }
+  syncPageWithLocation();
+  if (unchanged && currentRoute === 'home') {
+    if (hash === '#watchlist') {
+      showWatchlist();
+    } else if (hash !== '#home' && hash !== '#') {
+      resetCatalogFilters();
+      requestAnimationFrame(() => {
+        document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+}
+
+function resetCatalogFilters() {
+  clearTimeout(searchTimer);
+  searchRequest += 1;
+  showingWatchlist = false;
+  selectedGenre = '';
+  searchInput.value = '';
+  watchlistNav.classList.remove('active');
+  document.querySelectorAll('.genre-grid button').forEach((button) => button.classList.remove('selected'));
+  showSearchMode('');
+  if (homeCatalog) {
+    renderCards(catalogs.trending, homeCatalog.trending);
+    renderCards(catalogs.upcoming, homeCatalog.upcoming);
+    renderCards(catalogs.series, homeCatalog.series);
+  }
+  setStatus('');
+}
+
+document.querySelector('.avatar').textContent = displayName.trim().charAt(0).toLocaleUpperCase('uk-UA') || 'Г';
+document.querySelector('.account-avatar').textContent = document.querySelector('.avatar').textContent;
 document.querySelector('#detail-back').addEventListener('click', () => {
-  window.location.hash = '#home';
+  if (history.state?.filmVerseDetail) {
+    history.back();
+  } else {
+    navigateToHash('#home');
+  }
 });
 window.addEventListener('hashchange', syncPageWithLocation);
+window.addEventListener('popstate', syncPageWithLocation);
+document.addEventListener('click', (event) => {
+  const link = event.target.closest('a[href^="#"]');
+  if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const hash = link.getAttribute('href');
+  if (!hash || hash === '#' || document.getElementById(hash.slice(1))) {
+    event.preventDefault();
+    if (link.closest('.main-nav')) {
+      mainNav.classList.remove('menu-open');
+      menuButton.setAttribute('aria-expanded', 'false');
+    }
+    navigateToHash(hash && hash !== '#' ? hash : '#home');
+    return;
+  }
+  if (informationPages[hash.slice(1)]) {
+    event.preventDefault();
+    navigateToHash(hash);
+  }
+});
+document.querySelector('.avatar').addEventListener('click', () => navigateToHash('#account'));
+document.querySelector('#info-back').addEventListener('click', () => navigateToHash('#home'));
+document.querySelector('#account-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const input = document.querySelector('#account-display-name');
+  const nextName = input.value.trim();
+  if (!nextName) {
+    input.focus();
+    return;
+  }
+  displayName = nextName;
+  try {
+    localStorage.setItem('filmverse-display-name', displayName);
+    document.querySelector('.avatar').textContent = displayName.charAt(0).toLocaleUpperCase('uk-UA');
+    document.querySelector('.account-avatar').textContent = document.querySelector('.avatar').textContent;
+    document.querySelector('#account-save-status').textContent = 'Ім’я профілю збережено на цьому пристрої.';
+  } catch (error) {
+    console.warn('Не вдалося зберегти ім’я профілю.', error);
+    document.querySelector('#account-save-status').textContent = 'Не вдалося зберегти ім’я. Перевір налаштування браузера.';
+  }
+});
+document.querySelector('#account-open-watchlist').addEventListener('click', () => {
+  navigateToHash('#watchlist');
+});
 detailWatchlist.addEventListener('click', () => {
   if (activeDetails) toggleWatchlist(itemKey(activeDetails), detailWatchlist);
 });
@@ -648,10 +997,23 @@ document.querySelector('#detail-similar').addEventListener('keydown', (event) =>
   event.preventDefault();
   openDetails(row.dataset.mediaType, row.dataset.itemId);
 });
+const topTenList = document.querySelector('#top-ten-list');
+topTenList.addEventListener('click', (event) => {
+  const row = event.target.closest('.top-ten-item');
+  if (row) openDetails(row.dataset.mediaType, row.dataset.itemId);
+});
+topTenList.addEventListener('keydown', (event) => {
+  if (!['Enter', ' '].includes(event.key)) return;
+  const row = event.target.closest('.top-ten-item');
+  if (!row) return;
+  event.preventDefault();
+  openDetails(row.dataset.mediaType, row.dataset.itemId);
+});
 
 let searchTimer;
 searchInput.addEventListener('input', () => {
   clearTimeout(searchTimer);
+  if (currentRoute !== 'home' || window.location.hash === '#watchlist') navigateToHash('#home');
   showingWatchlist = false;
   selectedGenre = '';
   watchlistNav.classList.remove('active');
@@ -661,31 +1023,13 @@ searchInput.addEventListener('input', () => {
 });
 
 watchlistNav.addEventListener('click', () => {
-  showingWatchlist = !showingWatchlist;
-  selectedGenre = '';
-  searchInput.value = '';
-  searchRequest += 1;
-  document.querySelectorAll('.genre-grid button').forEach((button) => button.classList.remove('selected'));
-  watchlistNav.classList.toggle('active', showingWatchlist);
-  if (showingWatchlist) {
-    showSearchMode('watchlist');
-    renderCards(catalogs.trending, [...savedItems.values()]);
-    setStatus('');
-  } else {
-    showSearchMode('');
-    if (homeCatalog) {
-      renderCards(catalogs.trending, homeCatalog.trending);
-      updateVisibleCards();
-    }
-  }
-  if (homeCatalog && !showingWatchlist) {
-    setStatus('');
-  }
-  document.querySelector('#popular').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  watchlistNav.setAttribute('aria-pressed', String(window.location.hash !== '#watchlist'));
+  navigateToHash(window.location.hash === '#watchlist' ? '#home' : '#watchlist');
 });
 
 document.querySelectorAll('.genre-grid button').forEach((button) => {
   button.addEventListener('click', () => {
+    if (window.location.hash === '#watchlist') navigateToHash('#home');
     selectedGenre = selectedGenre === button.dataset.genre ? '' : button.dataset.genre;
     showingWatchlist = false;
     searchInput.value = '';
@@ -706,13 +1050,15 @@ document.querySelectorAll('.genre-grid button').forEach((button) => {
 });
 
 document.querySelector('.play-button').addEventListener('click', () => {
-  if (!slides.length) return;
-  dialogTitle.textContent = slides[currentSlide].title;
-  dialog.showModal();
+  navigateToHash('#free-movies');
 });
-document.querySelector('.dialog-ok').addEventListener('click', () => dialog.close());
-dialog.addEventListener('click', (event) => {
-  if (event.target === dialog) dialog.close();
+freeMovieGrid.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-free-movie-id]');
+  if (button) playFreeMovie(button.dataset.freeMovieId);
+});
+document.querySelector('#free-movie-close').addEventListener('click', () => {
+  freeMovieEmbed.src = 'about:blank';
+  freeMoviePlayer.hidden = true;
 });
 
 const menuButton = document.querySelector('.mobile-menu');
@@ -721,13 +1067,7 @@ menuButton.addEventListener('click', () => {
   const isOpen = mainNav.classList.toggle('menu-open');
   menuButton.setAttribute('aria-expanded', String(isOpen));
 });
-mainNav.querySelectorAll('a').forEach((link) => {
-  link.addEventListener('click', () => {
-    mainNav.classList.remove('menu-open');
-    menuButton.setAttribute('aria-expanded', 'false');
-  });
-});
-
 updateWatchlistCount();
 loadHomeCatalog();
-if (window.location.hash.startsWith('#movie/')) syncPageWithLocation();
+loadFreeMovies();
+syncPageWithLocation();

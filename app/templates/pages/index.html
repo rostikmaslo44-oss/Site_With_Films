@@ -23,7 +23,9 @@
       <a class="nav-link" href="#series">Серіали</a>
       <a class="nav-link" href="#genres">Жанри</a>
       <a class="nav-link" href="#popular">Популярне</a>
-      <button class="nav-link watchlist-nav" type="button">Мій список <span class="watchlist-count">0</span></button>
+      <a class="nav-link" href="#free-movies">Безкоштовні</a>
+      <a class="nav-link account-nav" href="#account">Акаунт</a>
+      <button class="nav-link watchlist-nav" type="button" aria-pressed="false">Мій список <span class="watchlist-count">0</span></button>
     </nav>
 
     <label class="search-box">
@@ -31,10 +33,7 @@
       <input id="movie-search" type="search" placeholder="Пошук фільмів, серіалів..." autocomplete="off">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 4.2 4.2"></path></svg>
     </label>
-    <button class="icon-button notification-button" type="button" aria-label="Сповіщення">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"></path></svg>
-    </button>
-    <button class="avatar" type="button" aria-label="Профіль">Г</button>
+    <button class="avatar" type="button" aria-label="Відкрити акаунт">Г</button>
     <button class="mobile-menu" type="button" aria-label="Відкрити меню" aria-expanded="false"><span></span><span></span><span></span></button>
   </header>
 
@@ -55,7 +54,7 @@
             <span class="rating"><span class="star">★</span> <span id="hero-rating"></span></span>
           </div>
           <div class="hero-actions">
-            <button class="button button-primary play-button" type="button"><span aria-hidden="true">▶</span> Дивитись</button>
+            <button class="button button-primary play-button" type="button"><span aria-hidden="true">▶</span> Безкоштовні фільми</button>
             <button class="button button-outline hero-watchlist" type="button"><span aria-hidden="true">＋</span> Додати в список</button>
           </div>
         </div>
@@ -77,6 +76,28 @@
       <section class="catalog-section series-section" id="series">
         <div class="section-heading"><h2>Популярні серіали</h2><a href="#series">Дивитись усі <span>→</span></a></div>
         <div class="movie-grid series-grid" data-catalog="series"></div>
+      </section>
+
+      <section class="catalog-section free-movies-section" id="free-movies">
+        <div class="section-heading">
+          <h2>Безкоштовні фільми</h2>
+          <span class="free-movies-source">Internet Archive · суспільне надбання</span>
+        </div>
+        <p class="free-movies-note">Доступні стрічки позначені джерелом як Public Domain. Права та доступність перегляду перевіряйте на сторінці фільму.</p>
+        <p class="free-movies-status" id="free-movies-status" role="status">Завантажуємо безкоштовні фільми…</p>
+        <div class="free-movie-player" id="free-movie-player" hidden>
+          <div class="free-movie-player-heading">
+            <h3 id="free-movie-title"></h3>
+            <div>
+              <a class="button button-outline" id="free-movie-source" href="#" target="_blank" rel="noopener noreferrer">Сторінка джерела</a>
+              <button class="button button-outline" id="free-movie-close" type="button">Закрити</button>
+            </div>
+          </div>
+          <div class="free-movie-frame">
+            <iframe id="free-movie-embed" title="Безкоштовний фільм" allow="fullscreen; picture-in-picture" loading="lazy"></iframe>
+          </div>
+        </div>
+        <div class="free-movie-grid" id="free-movie-grid"></div>
       </section>
       <p class="empty-state" hidden>Нічого не знайдено. Спробуйте інший запит.</p>
     </div>
@@ -164,6 +185,40 @@
     </div>
   </main>
 
+  <main class="account-page" id="account" hidden>
+    <section class="account-panel">
+      <div class="account-avatar" aria-hidden="true">Г</div>
+      <span class="eyebrow">ТВІЙ ПРОФІЛЬ</span>
+      <h1>Акаунт FilmVerse</h1>
+      <p class="account-description">Гостьовий профіль зберігається лише в цьому браузері. Вхід і синхронізація між пристроями поки недоступні.</p>
+      <form class="account-form" id="account-form">
+        <label for="account-display-name">Як до тебе звертатися?</label>
+        <div>
+          <input id="account-display-name" name="displayName" type="text" maxlength="40" autocomplete="nickname" required>
+          <button class="button button-primary" type="submit">Зберегти</button>
+        </div>
+        <p class="account-save-status" id="account-save-status" role="status"></p>
+      </form>
+      <div class="account-stats">
+        <span>У твоєму списку</span>
+        <strong id="account-watchlist-count">0</strong>
+      </div>
+      <div class="account-actions">
+        <button class="button button-outline" id="account-open-watchlist" type="button">Відкрити мій список</button>
+        <a class="button button-outline" href="#home">Повернутися до каталогу</a>
+      </div>
+    </section>
+  </main>
+
+  <main class="info-page" id="info" hidden>
+    <section class="info-panel">
+      <button class="detail-back button button-outline" id="info-back" type="button">← До каталогу</button>
+      <span class="eyebrow">FILMVERSE</span>
+      <h1 id="info-title"></h1>
+      <div id="info-content"></div>
+    </section>
+  </main>
+
   <footer class="site-footer">
     <a class="brand footer-brand" href="#"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Film<span>Verse</span></span></a>
     <span class="footer-copy">Фільми. Серіали. Емоції.</span>
@@ -171,12 +226,5 @@
     <span class="copyright">© 2025 FilmVerse. Всі права захищені.</span>
   </footer>
 
-  <dialog class="movie-dialog" id="movie-dialog">
-    <form method="dialog"><button class="dialog-close" aria-label="Закрити">×</button></form>
-    <div class="dialog-icon">▶</div>
-    <h2 id="dialog-title">Перегляд</h2>
-    <p>Сторінка перегляду фільму скоро з'явиться. А поки оберіть іншу стрічку для свого списку.</p>
-    <button class="button button-primary dialog-ok" type="button">Зрозуміло</button>
-  </dialog>
 </body>
 </html>
