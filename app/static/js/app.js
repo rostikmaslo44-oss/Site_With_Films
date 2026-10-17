@@ -49,8 +49,6 @@ let activeDetails = null;
 let currentRoute = '';
 let currentHash = '';
 let displayName = 'Глядач';
-let currentUser = null;
-let pendingAvatarUrl = '';
 
 try {
   const savedEntries = JSON.parse(localStorage.getItem('filmverse-watchlist') || '[]');
@@ -80,17 +78,14 @@ function itemKey(item) {
   return `${item.media_type}:${item.id}`;
 }
 
-function updateWatchlistCount() { if (watchlistCount) { watchlistCount.textContent = String(watchlist.size); }
-const accountWatchlistCount = document.querySelector('#account-watchlist-count');
-
-if (accountWatchlistCount) {
-    accountWatchlistCount.textContent = String(watchlist.size);
-}
+function updateWatchlistCount() {
+  watchlistCount.textContent = String(watchlist.size);
+  document.querySelector('#account-watchlist-count').textContent = String(watchlist.size);
 }
 
 try {
-  const savedName = localStorage.getItem('filmverse-display-name');
-  if (savedName) displayName = savedName;
+  const storedName = localStorage.getItem('filmverse-display-name');
+  if (storedName) displayName = storedName;
 } catch (error) {
   console.warn('Не вдалося прочитати ім’я профілю.', error);
 }
@@ -933,13 +928,24 @@ document.addEventListener('click', (event) => {
 });
 document.querySelector('.avatar').addEventListener('click', () => navigateToHash('#account'));
 document.querySelector('#info-back').addEventListener('click', () => navigateToHash('#home'));
-document.querySelector('#register-form').addEventListener('submit', registerAccount);
-document.querySelector('#login-form').addEventListener('submit', loginAccount);
-document.querySelector('#account-form').addEventListener('submit', saveAccountChanges);
-document.querySelector('#logout-button').addEventListener('click', logoutAccount);
-document.querySelector('#avatar-upload').addEventListener('change', handleAvatarUpload);
-document.querySelectorAll('.account-open-watchlist').forEach((button) => {
-  button.addEventListener('click', () => navigateToHash('#watchlist'));
+document.querySelector('#account-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const input = document.querySelector('#account-display-name');
+  const nextName = input.value.trim();
+  if (!nextName) {
+    input.focus();
+    return;
+  }
+  displayName = nextName;
+  try {
+    localStorage.setItem('filmverse-display-name', displayName);
+    document.querySelector('.avatar').textContent = displayName.charAt(0).toLocaleUpperCase('uk-UA');
+    document.querySelector('.account-avatar').textContent = document.querySelector('.avatar').textContent;
+    document.querySelector('#account-save-status').textContent = 'Ім’я профілю збережено на цьому пристрої.';
+  } catch (error) {
+    console.warn('Не вдалося зберегти ім’я профілю.', error);
+    document.querySelector('#account-save-status').textContent = 'Не вдалося зберегти ім’я. Перевір налаштування браузера.';
+  }
 });
 document.querySelector('#account-open-watchlist').addEventListener('click', () => {
   navigateToHash('#watchlist');
@@ -1064,258 +1070,4 @@ menuButton.addEventListener('click', () => {
 updateWatchlistCount();
 loadHomeCatalog();
 loadFreeMovies();
-fetchCurrentUser();
 syncPageWithLocation();
-
-function getInitialFromName(name) {
-  if (!name || !String(name).trim()) return 'Г';
-  return String(name).trim().charAt(0).toLocaleUpperCase('uk-UA') || 'Г';
-}
-
-function applyAvatarToElement(element, avatarUrl, fallbackName) {
-  if (!element) return;
-  const url = typeof avatarUrl === 'string' ? avatarUrl.trim() : '';
-  if (url) {
-    element.style.backgroundImage = `url("${url}")`;
-    element.style.backgroundSize = 'cover';
-    element.style.backgroundPosition = 'center';
-    element.style.backgroundRepeat = 'no-repeat';
-    element.textContent = '';
-    element.setAttribute('aria-label', fallbackName || 'Профіль користувача');
-  } else {
-    element.style.backgroundImage = 'none';
-    element.textContent = getInitialFromName(fallbackName || 'Г');
-    element.removeAttribute('aria-label');
-  }
-}
-
-function renderUserAvatar() {
-  const avatar = document.querySelector('.avatar');
-  const accountAvatar = document.querySelector('.account-avatar');
-  const profileName = currentUser ? (currentUser.display_name || 'Глядач') : displayName;
-  const avatarUrl = currentUser && currentUser.avatar_url ? currentUser.avatar_url : '';
-  applyAvatarToElement(avatar, avatarUrl, profileName);
-  applyAvatarToElement(accountAvatar, avatarUrl, profileName);
-}
-
-async function fetchCurrentUser() {
-  try {
-    const response = await fetch('/api/auth/me');
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || 'Не вдалося завантажити профіль.');
-    currentUser = payload.user || null;
-    if (currentUser) {
-      displayName = currentUser.display_name || 'Глядач';
-      try {
-        localStorage.setItem('filmverse-display-name', displayName);
-        document.querySelector('.avatar').textContent = displayName.charAt(0).toLocaleUpperCase('uk-UA');
-        document.querySelector('.account-avatar').textContent = document.querySelector('.avatar').textContent;
-      } catch (error) {
-        console.warn('Не вдалося оновити ім’я профілю в браузері.', error);
-      }
-    } else {
-      try {
-        const storedName = localStorage.getItem('filmverse-display-name');
-        if (storedName) displayName = storedName;
-      } catch (error) {
-        console.warn('Не вдалося прочитати ім’я профілю.', error);
-      }
-    }
-    renderUserAvatar();
-    renderAccountPanel();
-  } catch (error) {
-    console.warn('Не вдалося перевірити поточний профіль.', error);
-    currentUser = null;
-    renderUserAvatar();
-    renderAccountPanel();
-  }
-}
-
-function renderAccountPanel() {
-  const isLoggedIn = Boolean(currentUser);
-  const panelTitle = document.querySelector('#account-title');
-  const panelDescription = document.querySelector('#account-description');
-  const loggedOut = document.querySelector('#auth-logged-out');
-  const loggedIn = document.querySelector('#auth-logged-in');
-  const guestActions = document.querySelector('#guest-actions');
-  const accountInput = document.querySelector('#account-display-name');
-  const accountEmailInput = document.querySelector('#account-email');
-  const accountPasswordInput = document.querySelector('#account-password');
-  const accountEmailLabel = document.querySelector('#account-email-label');
-
-  if (!panelTitle || !panelDescription || !loggedOut || !loggedIn || !guestActions || !accountInput || !accountEmailInput || !accountPasswordInput || !accountEmailLabel) return;
-
-  panelTitle.textContent = isLoggedIn ? 'Мій обліковий запис' : 'Акаунт FilmVerse';
-  panelDescription.textContent = isLoggedIn
-    ? 'Тут можна змінити ім’я, пошту, пароль та фото профілю.'
-    : 'Гостьовий профіль зберігається лише в цьому браузері. Увійди або створіть обліковий запис, щоб зберігати дані між пристроями.';
-  loggedOut.hidden = isLoggedIn;
-  loggedIn.hidden = !isLoggedIn;
-  guestActions.hidden = isLoggedIn;
-  renderUserAvatar();
-
-  if (isLoggedIn) {
-    accountEmailLabel.textContent = currentUser.email;
-    accountInput.value = currentUser.display_name || '';
-    accountEmailInput.value = currentUser.email || '';
-    accountPasswordInput.value = '';
-  } else {
-    accountInput.value = displayName;
-  }
-}
-
-async function registerAccount(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const email = form.querySelector('#register-email').value.trim();
-  const password = form.querySelector('#register-password').value;
-  const displayNameValue = form.querySelector('#register-name').value.trim();
-  const status = document.querySelector('#register-status');
-
-  if (!status) return;
-  status.textContent = 'Створюємо обліковий запис…';
-  status.classList.remove('error');
-
-  try {
-    const response = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        password,
-        display_name: displayNameValue,
-        avatar_url: pendingAvatarUrl || undefined
-      })
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || 'Не вдалося створити обліковий запис.');
-    currentUser = payload.user;
-    displayName = currentUser.display_name;
-    form.reset();
-    pendingAvatarUrl = '';
-    renderUserAvatar();
-    renderAccountPanel();
-    status.textContent = 'Обліковий запис створено.';
-  } catch (error) {
-    status.textContent = error.message || 'Не вдалося створити обліковий запис.';
-    status.classList.add('error');
-  }
-}
-
-async function loginAccount(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const email = form.querySelector('#login-email').value.trim();
-  const password = form.querySelector('#login-password').value;
-  const status = document.querySelector('#login-status');
-
-  if (!status) return;
-  status.textContent = 'Входимо в систему…';
-  status.classList.remove('error');
-
-  try {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || 'Не вдалося увійти.');
-    currentUser = payload.user;
-    displayName = currentUser.display_name;
-    form.reset();
-    renderUserAvatar();
-    renderAccountPanel();
-    status.textContent = 'Вхід виконано.';
-  } catch (error) {
-    status.textContent = error.message || 'Не вдалося увійти.';
-    status.classList.add('error');
-  }
-}
-
-async function logoutAccount() {
-  try {
-    await fetch('/api/auth/logout', { method: 'POST' });
-  } catch (error) {
-    console.warn('Не вдалося вийти з системи.', error);
-  }
-  currentUser = null;
-  try {
-    const storedName = localStorage.getItem('filmverse-display-name');
-    displayName = storedName || 'Глядач';
-  } catch (error) {
-    displayName = 'Глядач';
-  }
-  pendingAvatarUrl = '';
-  renderUserAvatar();
-  renderAccountPanel();
-}
-
-async function saveAccountChanges(event) {
-  event.preventDefault();
-  if (!currentUser) return;
-  const form = event.currentTarget;
-  const email = form.querySelector('#account-email').value.trim();
-  const password = form.querySelector('#account-password').value;
-  const displayNameValue = form.querySelector('#account-display-name').value.trim();
-  const status = document.querySelector('#account-save-status');
-
-  if (!status) return;
-  status.textContent = 'Зберігаємо зміни…';
-  status.classList.remove('error');
-
-  try {
-    const response = await fetch('/api/auth/me', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        password: password || undefined,
-        display_name: displayNameValue || undefined,
-        avatar_url: pendingAvatarUrl || currentUser.avatar_url || undefined
-      })
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || 'Не вдалося зберегти зміни.');
-    currentUser = payload.user;
-    displayName = currentUser.display_name;
-    localStorage.setItem('filmverse-display-name', displayName);
-    pendingAvatarUrl = '';
-    renderUserAvatar();
-    renderAccountPanel();
-    status.textContent = 'Зміни збережено.';
-  } catch (error) {
-    status.textContent = error.message || 'Не вдалося зберегти зміни.';
-    status.classList.add('error');
-  }
-}
-
-function handleAvatarUpload(event) {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
-
-  if (!file.type.startsWith('image/')) {
-    const status = document.querySelector('#account-save-status');
-    if (status) {
-      status.textContent = 'Будь ласка, виберіть зображення.';
-      status.classList.add('error');
-    }
-    event.target.value = '';
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    pendingAvatarUrl = String(reader.result || '');
-    const profileName = currentUser ? (currentUser.display_name || 'Глядач') : displayName;
-    applyAvatarToElement(document.querySelector('.account-avatar'), pendingAvatarUrl, profileName);
-    applyAvatarToElement(document.querySelector('.avatar'), pendingAvatarUrl, profileName);
-    const status = document.querySelector('#account-save-status');
-    if (status) {
-      status.textContent = 'Фото профілю готове до збереження.';
-      status.classList.remove('error');
-    }
-    event.target.value = '';
-  };
-  reader.readAsDataURL(file);
-}

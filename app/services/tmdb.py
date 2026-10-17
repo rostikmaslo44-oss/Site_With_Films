@@ -45,13 +45,7 @@ class TMDBError(Exception):
 
 class TMDBService:
     def __init__(self, access_token: str):
-        self.access_token = (access_token or "").strip()
-
-    @staticmethod
-    def from_config(config: dict[str, str] | None = None):
-        config = config or {}
-        token = (config.get("TMDB_ACCESS_TOKEN") or config.get("TMDB_KEY") or "").strip()
-        return TMDBService(token)
+        self.access_token = access_token
 
     def home_catalog(self) -> dict[str, list[dict[str, Any]]]:
         trending = self._get_results("/trending/movie/week")

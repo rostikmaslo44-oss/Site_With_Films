@@ -187,86 +187,24 @@
 
   <main class="account-page" id="account" hidden>
     <section class="account-panel">
-      <div class="account-header">
-        <div class="profile-avatar-shell">
-          <div class="account-avatar" aria-label="Аватар користувача">Г</div>
-          <label class="avatar-upload" for="avatar-upload">
-            <input id="avatar-upload" type="file" accept="image/*" aria-label="Змінити фото профілю">
-            <span>Змінити фото</span>
-          </label>
+      <div class="account-avatar" aria-hidden="true">Г</div>
+      <span class="eyebrow">ТВІЙ ПРОФІЛЬ</span>
+      <h1>Акаунт FilmVerse</h1>
+      <p class="account-description">Гостьовий профіль зберігається лише в цьому браузері. Вхід і синхронізація між пристроями поки недоступні.</p>
+      <form class="account-form" id="account-form">
+        <label for="account-display-name">Як до тебе звертатися?</label>
+        <div>
+          <input id="account-display-name" name="displayName" type="text" maxlength="40" autocomplete="nickname" required>
+          <button class="button button-primary" type="submit">Зберегти</button>
         </div>
-        <div class="account-header-copy">
-          <span class="eyebrow">ТВІЙ ПРОФІЛЬ</span>
-          <h1 id="account-title">Акаунт FilmVerse</h1>
-          <p id="account-description" class="account-description">Гостьовий профіль зберігається лише в цьому браузері. Увійди або створіть обліковий запис, щоб зберігати дані між пристроями.</p>
-        </div>
+        <p class="account-save-status" id="account-save-status" role="status"></p>
+      </form>
+      <div class="account-stats">
+        <span>У твоєму списку</span>
+        <strong id="account-watchlist-count">0</strong>
       </div>
-
-      <div id="auth-logged-out">
-        <form class="account-form auth-form" id="register-form">
-          <h2>Створити обліковий запис</h2>
-          <div class="account-field">
-            <label for="register-email">Пошта</label>
-            <input id="register-email" name="email" type="email" autocomplete="email" required>
-          </div>
-          <div class="account-field">
-            <label for="register-name">Ім’я</label>
-            <input id="register-name" name="display_name" type="text" maxlength="40" autocomplete="nickname" placeholder="Наприклад: Марина">
-          </div>
-          <div class="account-field">
-            <label for="register-password">Пароль</label>
-            <input id="register-password" name="password" type="password" minlength="6" autocomplete="new-password" required>
-          </div>
-          <button class="button button-primary" type="submit">Зареєструватися</button>
-          <p class="account-save-status" id="register-status" role="status"></p>
-        </form>
-
-        <form class="account-form auth-form" id="login-form">
-          <h2>Вхід</h2>
-          <div class="account-field">
-            <label for="login-email">Пошта</label>
-            <input id="login-email" name="email" type="email" autocomplete="email" required>
-          </div>
-          <div class="account-field">
-            <label for="login-password">Пароль</label>
-            <input id="login-password" name="password" type="password" autocomplete="current-password" required>
-          </div>
-          <button class="button button-outline" type="submit">Увійти</button>
-          <p class="account-save-status" id="login-status" role="status"></p>
-        </form>
-      </div>
-
-      <div id="auth-logged-in" hidden>
-        <div class="account-summary">
-          <strong id="account-email-label">email@example.com</strong>
-          <span>Профіль активний</span>
-        </div>
-
-        <form class="account-form" id="account-form">
-          <div class="account-field">
-            <label for="account-display-name">Як до тебе звертатися?</label>
-            <input id="account-display-name" name="displayName" type="text" maxlength="40" autocomplete="nickname" required>
-          </div>
-          <div class="account-field">
-            <label for="account-email">Пошта</label>
-            <input id="account-email" name="email" type="email" autocomplete="email" required>
-          </div>
-          <div class="account-field">
-            <label for="account-password">Новий пароль</label>
-            <input id="account-password" name="password" type="password" minlength="6" autocomplete="new-password" placeholder="Залиште порожнім, якщо не міняєте">
-          </div>
-          <button class="button button-primary" type="submit">Зберегти зміни</button>
-          <p class="account-save-status" id="account-save-status" role="status"></p>
-        </form>
-
-        <div class="account-actions">
-          <button class="button button-outline" id="logout-button" type="button">Вийти</button>
-          <button class="button button-outline" id="account-open-watchlist" type="button">Відкрити мій список</button>
-        </div>
-      </div>
-
-      <div class="account-actions" id="guest-actions">
-        <button class="button button-outline account-open-watchlist" type="button">Відкрити мій список</button>
+      <div class="account-actions">
+        <button class="button button-outline" id="account-open-watchlist" type="button">Відкрити мій список</button>
         <a class="button button-outline" href="#home">Повернутися до каталогу</a>
       </div>
     </section>
